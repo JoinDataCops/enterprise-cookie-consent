@@ -1,225 +1,116 @@
-# Enterprise cookie consent in 2026: it's a data-egress problem, not a banner problem
+# Enterprise cookie consent
 
-If you're at the renewal table for an enterprise CMP this quarter, the question your auditor cares about isn't 'do we have a banner'. It's 'can we prove no cookie fired before consent and no CAPI call left the perimeter after withdrawal, on a per-event log a regulator can read'. That sentence is two clicks away from the September 2025 CNIL fine pages and is what most banner-only platforms can't deliver.
+Three layers. **Most cookie consent platforms cover one of them.** That gap is where your compliance story quietly falls apart.
 
-The fines tell the story. CNIL fined Google EUR 325M and Shein EUR 150M in September 2025 for the same failure pattern. Cookies set on arrival before consent. 'Refuse all' that didn't actually stop new cookies. Downstream reads after the user revoked consent. American Express Carte France EUR 1.5M for advertising cookies placed before consent and still read after withdrawal. None of those failures are banner failures. The banners rendered. The regulator wasn't fooled.
+I have audited enterprise consent setups for companies running paid media across the US, EU, LATAM and APAC. The pattern is always the same. Legal signs off on the banner.
 
-The enterprise market is also in active disruption. OneTrust raised its minimum ACV to about $10K/year for Q2 2026 and started migrating SMB cookie-only customers off the platform, not down. Cookiebot (Usercentrics) doubled base Premium pricing from EUR 15 to EUR 30 per domain per month in August 2025 and auto-upgraded existing 1-3 domain accounts to a Medium tier. Didomi acquired Sourcepoint and Addingwell, backed by Marlin Equity's $83M majority stake. So an unusual share of mid-market and enterprise CMP buyers are at the renewal table this year, looking at higher prices and consolidated vendors with a fining environment that just doubled in seriousness.
+Marketing assumes the banner means they are covered. Six months later a regulator, a customer security review, or a Meta data-quality flag exposes that consented data and unconsented data have been mixing the entire time.
 
-The gap on the SERP: top-ranking pages are vendor PLPs comparing banner UIs. None of them frame consent as a three-layer problem. None of them give buyers the seven failure modes auditors actually check.
+Here is the honest read. **Enterprise cookie consent is not a banner problem. It is a data-egress problem.** The banner is just the visible **5%** of it. The question that actually matters is not "does the banner look right" - it is **"what fires before someone clicks, and what leaves your servers after they click."**
 
-This post is the layered model. The seven failure modes. The honest field of vendors. And the renewal-table question worth asking.
-
----
+This is not a banner-picking post. This is a post about the three layers a consent system has to enforce, the seven ways enterprise setups fail, and where DataCops fits - as the verification layer that sits on outbound calls, not as another banner. For broader context, see our [GDPR compliance with server-side tracking](/resources/gdpr-compliance-with-server-side-tracking) write-up and the [enterprise plan overview](/enterprise).
 
 ## Quick stuff people keep asking
 
-**What is enterprise cookie consent?** The end-to-end pipeline: a banner UI plus tag-firing enforcement in the browser plus server-side enforcement on outbound CAPI/S2S calls plus a per-event audit log. Most platforms ship layer 1 only.
+**What is enterprise cookie consent?** It is the system that collects, records and enforces a user's choice about tracking across every domain, tag and server-side call a large organization runs. Enterprise is the operative word. A single-site SMB banner and a 40-domain global brand with sGTM and CAPI are not the same problem.
 
-**Is cookie consent legally required?** In the EU under GDPR/ePrivacy, yes for non-essential cookies. In California under CCPA/CPRA, opt-out signals are required. In Brazil under LGPD, similar opt-in posture. UK PECR mirrors GDPR for cookies. As of 2026, privacy regulations cover roughly 80% of the global population.
+**Is cookie consent legally required?** In the EU and UK, yes - the ePrivacy Directive requires prior consent for non-essential cookies before they are set. In the US it is opt-out, not opt-in: CCPA/CPRA requires you to honor a "Do Not Sell or Share" signal, not a pre-consent banner. Same banner, two completely different legal mechanics.
 
-**Do I need cookie consent for CCPA?** CCPA is opt-out (Do Not Sell/Share). The cookie banner does need to surface that mechanism, and CCPA-only sites still need a Global Privacy Control signal handler. So functionally yes, the implementation is just different from GDPR opt-in.
+**What is the best cookie consent solution?** Wrong question. There is no single best. The right question is which layers you need enforced.
 
-**What is Google Consent Mode v2?** A protocol for telling Google's tags whether users have granted consent to ad and analytics storage. Tags adjust behavior based on the consent state. Without v2, Google Ads Smart Bidding and remarketing degrade for EU traffic.
+If you only need a banner, almost any CMP works. If you need tag-firing enforcement and server-side enforcement on CAPI, most of the market does not cover that - and that is the gap below.
 
-**What happens if I don't have cookie consent?** GDPR fines totalled around EUR 2.92B in 2024. CNIL alone issued 83 sanctions worth ~EUR 486.8M in 2025, with cookie/ePrivacy violations a primary target. The 2025 reset suggests enforcement is now a budget line item, not a hypothetical risk.
+**Do I need cookie consent for CCPA?** You need a consent mechanism, but not the EU kind. CCPA is opt-out. You need a visible "Your Privacy Choices" link, you must honor Global Privacy Control signals, and you must not "sell or share" data after someone opts out.
 
----
+A pre-ticked EU-style "reject all" wall is not what CCPA asks for.
 
-## The three-layer model
+**What is Google Consent Mode v2?** It is Google's required framework for passing consent state into Google tags. Two parameters - `ad_storage` and `analytics_storage` - plus `ad_user_data` and `ad_personalization` added for v2. When consent is denied, Google tags send cookieless pings instead of full hits.
 
-Most enterprise CMP procurement evaluates layer 1 only. The 2025 fines targeted layers 2 and 3.
+It is a signaling protocol, not a consent platform. You still need a CMP to feed it.
 
-**Layer 1: the banner UI.** The user-facing dialog that captures consent state. This is where every CMP shines because it's the visible artifact. CookieYes, Cookiebot, OneTrust, Termly, Osano, Usercentrics all do this competently.
+**How do I make my cookie banner GDPR compliant?** Reject must be as easy as accept - same prominence, same number of clicks. No pre-ticked boxes. No tags fire before a choice is made.
 
-**Layer 2: tag-firing enforcement in the browser.** When consent is denied, do tags actually not fire? GTM has a consent state mechanism, GA4 has a Consent Mode v2 mode, Meta Pixel has a consent-aware mode. But all three rely on the page implementing them correctly. If your tag manager is misconfigured, the banner says 'denied' and the tag still fires. That's the SHEIN pattern.
+Granular categories, not one global toggle. And you must store proof of each consent. Most banners fail the "reject is as easy as accept" test alone.
 
-**Layer 3: server-side enforcement on CAPI/S2S egress.** When a user denies consent, do server-side calls to Meta CAPI, Google Ads CAPI, TikTok Events API, LinkedIn Insight CAPI also stop? Most CMPs don't even know server-side calls exist. They live on the front end. So a user clicks Reject, the banner state updates, GTM honors it, the GA4 tag suppresses. And the marketing team's standalone server-side CAPI integration, sitting in their CDP or sGTM, fires anyway because nothing told it to stop.
+**What happens if I don't have cookie consent?** In the EU, fines up to **4%** of global turnover, though the more common outcome is a regulator order plus reputational drag. In the US, CCPA statutory damages run **$2,500** to **$7,500** per violation, counted per consumer. The quieter cost: enterprise customers run privacy reviews on vendors now, and a broken consent setup loses deals.
 
-The Google EUR 325M fine and the Shein EUR 150M fine were not 'we didn't have a banner'. They were 'the banner state didn't propagate through the entire data egress pipeline'. Layer 3 problems.
+## The gap: consent is three layers and most platforms enforce one
 
----
+Here is the model worth stealing. Enterprise cookie consent has three layers, and they are not optional stages - they are three separate enforcement points that can each fail independently.
 
-## The seven failure modes auditors actually check
+**Layer 1 is the banner.** The UI. Does it show, is reject as easy as accept, are categories granular, is the choice logged. Every CMP on the market does this. This is the commodity layer.
 
-The pattern across CNIL decisions and the broader 2025-2026 audit findings is consistent. The seven failure modes you should be checking your own stack against:
+**Layer 2 is tag-firing enforcement in the browser.** When someone clicks "reject," do the analytics, ad and pixel tags actually not fire? This is where the first big failure lives. The banner records a rejection while a tag manager fires Meta Pixel anyway, because the tag was not gated behind the consent trigger.
 
-1. **Banner not blocking.** The banner renders but cookies set on arrival anyway, before any user interaction. Direct violation. Shein pattern.
+The banner is honest. The page is not.
 
-2. **Tags fire pre-consent.** GTM containers, ad pixels, analytics tags execute before the user grants consent. Common when third-party tags are added to the page header without consent gating.
+**Layer 3 is server-side enforcement on outbound calls.** This is the layer almost nobody covers. Your [server-side GTM](/resources/gtm-server-side-container-setup-a-comprehensive-guide) container, your [Meta CAPI](/meta-conversion-api) integration, your S2S conversion calls to Google and TikTok - those fire from your infrastructure, after the browser. If a user rejected consent and your server still sends an identifiable conversion event to Meta CAPI, the rejection never reached the place where data actually leaves.
 
-3. **CAPI bypass.** Server-side conversion APIs (Meta, Google Ads, TikTok, LinkedIn) fire on every event regardless of front-end consent state. The front end says 'no analytics' and the backend pushes the conversion anyway.
+The banner said no. The server said yes.
 
-4. **Multi-domain drift.** Consent state is captured on www.brand.com and the same user later visits brand.shop or eu.brand.com without the consent state propagating. Different domain, different consent state, regulator reads it as separate non-consented data collection.
+Now the seven failure modes I see in enterprise audits, all of them living in Layers 2 and 3:
 
-5. **Regional mis-routing.** EU traffic served by a US-region datacenter, log data crossing borders without an SCC or adequacy decision. The CMP renders EU-appropriate UI but the data lives elsewhere.
+1. **Banner not blocking.** The CMP loads, looks right, logs choices - and tags fire regardless because they were never wired to the consent trigger. Pure Layer 2 failure.
+2. **Tags fire pre-consent.** On the first pageview, before the banner is even interactable, GA and the pixel have already fired. The race condition is worst on single-page apps, where route changes do not re-trigger the consent check.
+3. **CAPI bypass.** The browser respects consent. The server-side CAPI call does not get the consent signal at all, so it ships identifiable events for users who rejected. This is the single most common Layer 3 failure and the hardest for legal to even see.
+4. **Multi-domain drift.** Consent captured on one domain does not propagate to the others. A user rejects on the marketing site, lands on the app subdomain, and gets tracked fresh because the consent record never crossed.
+5. **Regional mis-routing.** A US visitor gets the EU opt-in wall; an EU visitor gets the US opt-out link. Geo-detection fails or is cached wrong, and you are now non-compliant in both directions at once.
+6. **No audit log.** A regulator or enterprise customer asks for proof that a specific user consented on a specific date to a specific category. You cannot produce it. The consent happened; the evidence did not.
+7. **No signal validation.** Nobody ever checks whether the consent state the banner recorded actually matches what the tags and the server did. There is no reconciliation. The system is assumed to work because it was configured once.
 
-6. **No audit log.** When a regulator asks 'show me consent state for user X at event Y', the platform can show the banner state at the session level but cannot show per-event proof of which tags ran and which CAPI calls left the perimeter. This is increasingly the failure mode CNIL flags.
+Here is the part that connects to a problem you probably do not associate with consent. When Layer 3 leaks, you are not just sending unconsented data - you are sending unfiltered data. The CMP script itself is a third-party script.
 
-7. **No signal validation.** Bots and headless traffic create consent records too. Without bot filtering on the consent layer, fraudulent traffic generates apparent 'consent given' records that pollute the audit log. When the regulator audits a window of 'consent given' events, half were bots.
+Brave and uBlock-class blockers stop it 30 to **40%** of the time, and on SPA route transitions it loses the race against your tags. So a meaningful slice of your traffic never sees the banner at all. Their tags fire in a no-consent-recorded state, and your server forwards it.
 
-A banner-only CMP can address #1 and partially #2. The other five require infrastructure beyond the banner.
+And of the data that does flow to your ad platforms, a large share was never human. We ran a honeypot on PillarlabAI - a clean signup funnel, no advertising behind it, just a form. Three thousand signups came in.
 
----
+When we fingerprinted them, **77%** were fraudulent. Six hundred and fifty of those "accounts" traced back to a single device [fingerprint](/alternative/fingerprintjs-alternative). One machine, presenting as 650 people.
 
-## The vendor field, honestly
+> If that funnel had a pixel and a CAPI feed, every one of those fake events would have been shipped to Meta as a real human conversion - consent state unknown, humanity unverified.
 
-**1. OneTrust**
+That is the compounding cost. Bot-contaminated, consent-ambiguous data does not just sit in a warehouse. It trains Meta's and Google's optimization to go find more traffic that looks like it.
 
-The Good: The enterprise default. Procurement teams recognize the name. Mature audit features. Wide regulatory coverage (GDPR, CCPA, LGPD, PIPL, etc.). Strong DSAR module.
+Which is more bots. [ROAS](/resources/facebook-roas-improvement-guide-from-black-box-to-profit-engine) degrades, the algorithm gets confident, and you keep paying. Garbage in, garbage optimized, garbage out.
 
-Frustrations: Minimum ACV raised to about $10K/year effective Q2 2026. SMB cookie-only customers being migrated off, not down. Implementation famously slow, often 6 to 12 weeks before green dashboards. Banner-and-policy first product; layer 3 (CAPI egress enforcement) is mostly outside scope.
+The root cause under all seven failure modes: third-party scripts collecting mixed data with no isolation before it leaves your infrastructure. You cannot banner your way out of an architecture problem.
 
-Wish List: A real mid-market product. Faster implementation. Native CAPI egress enforcement.
+## What an enterprise actually needs: enforcement at the egress point
 
-Value for Money: **6.5/10.** Right answer for a regulated $1B+ enterprise where procurement-grade name recognition matters. Wrong answer for almost everyone else in 2026.
+The fix is architectural, not cosmetic. You want consent enforced where data leaves - and you want two tiers of data separated at the source.
 
-Pricing: ~$10K/year minimum ACV from Q2 2026.
+Anonymous, aggregated session analytics - pageviews, traffic sources, no identifiers - are legal basis "legitimate interest" in most readings and do not require opt-in consent. "Reject all" does not mean "no data." It means no identifiable, cross-site tracking. The big mistake enterprise teams make is treating a rejection as a total blackout, when anonymous session analytics are always available to you.
 
----
+Identifiable data - anything that can profile a specific person or feed ad-platform matching - needs consent, and that consent has to be enforced on the outbound call, not just the banner.
 
-**2. Cookiebot (Usercentrics)**
+That is what DataCops does. It runs as first-party infrastructure on your own subdomain. Two-tier isolation is the core idea: anonymous analytics flow unconditionally, identifiable data flows only when consent is present, and the two are separated before anything leaves your servers.
 
-The Good: TCF 2.2 certified. Strong consent scanning. Mature Google partnership. Multi-language support.
+It also filters bots at ingestion against a 361.8 billion-plus IP database, so the events that do reach Meta, Google, TikTok and LinkedIn CAPI are both consented and human. It is the Layer 3 verification layer - the reconciliation between what the banner recorded and what the server actually sent.
 
-Frustrations: Premium base pricing doubled from EUR 15 to EUR 30/domain/month in August 2025. Auto-upgraded existing 1-3 domain accounts to Medium. Per-domain pricing scales harshly for multi-site enterprises. Banner-only category, doesn't natively enforce CAPI/S2S egress.
+Plain limitations, because the honesty is the point: DataCops is a newer brand than the legacy privacy suites, and SOC 2 Type II is in progress. It does not replace your legal team's RoPA and DPIA work - it is the marketing-data enforcement layer, not a GRC suite. If your only need is a banner, you do not need DataCops; a CMP is fine.
 
-Wish List: Bundle multi-domain pricing. Layer 3 enforcement.
+> The case for it starts the moment Layers 2 and 3 matter.
 
-Value for Money: **6/10.** Good banner. The 2025 price hike turned it from a fair deal into a renewal-table question.
+## Decision guide
 
-Pricing: From EUR 30/domain/month for Premium after August 2025.
+- **You run one domain, light tracking, no paid media.** A standard CMP covers you. Wire the tags to the consent trigger and move on.
+- **You run paid media and care about EU traffic.** You need Layer 3 enforcement on CAPI. A banner alone leaks unconsented conversions server-side.
+- **You operate across 5+ domains.** Multi-domain consent propagation is your first failure mode. Solve drift before you touch banner design.
+- **You sell to enterprise and face vendor privacy reviews.** The audit log is non-negotiable. If you cannot produce per-user, per-date, per-category proof, you will lose deals.
+- **Your ROAS is sliding and you blame iOS.** Audit your CAPI feed for bot contamination and consent state before you blame Apple. The leak is usually closer to home.
+- **You are US-only under CCPA.** Do not deploy the EU opt-in wall. Build an opt-out flow, honor Global Privacy Control, and skip the friction.
 
----
+## The banner was never the hard part
 
-**3. Didomi (now including Sourcepoint and Addingwell)**
+Here is the mistake. Teams treat cookie consent as a design and copy exercise - pick a CMP, style the banner, get legal's sign-off, done. Then they never check Layer 2 or Layer 3 again.
 
-The Good: Strong publisher and ad-tech footprint. TCF 2.2 certified. The Sourcepoint acquisition added enterprise publisher capabilities. The Addingwell acquisition added sGTM hosting. Theoretically the most integrated CMP+sGTM combo in 2026.
+The banner becomes a compliance theater prop while the actual data egress runs unenforced underneath it.
 
-Frustrations: Three product lines under one roof, with consolidation friction. PE-backed (Marlin Equity, $83M majority stake), so customers should expect aggressive monetization. Roadmap clarity is a fair question to ask in any procurement conversation.
+Consent is not what the banner says. It is what your servers do after the click.
 
-Wish List: Clearer product unification. Stable pricing posture.
+So go look. Pull your network tab, reject everything, and watch what still fires. Then check your CAPI logs for a user who rejected.
 
-Value for Money: **7/10** for publishers. **6.5/10** for general enterprise.
-
-Pricing: Quote-based, mid-market and up.
-
----
-
-**4. Osano**
-
-The Good: Compliance-first brand. Generous free tier for SMB. Strong DSAR and data discovery features. Reasonable enterprise pricing relative to OneTrust.
-
-Frustrations: Banner-and-policy category, doesn't natively enforce CAPI/S2S egress. Layer 3 not in scope by design.
-
-Wish List: Server-side enforcement.
-
-Value for Money: **7/10.** Good if compliance reporting and DSAR are the primary lens.
-
-Pricing: Free tier; paid plans starting around $99/mo and climbing into mid-market.
+If an identifiable event left your infrastructure anyway - and for most enterprises it did - your banner has been telling a story your architecture never agreed to. How long has it been doing that?
 
 ---
 
-**5. Termly**
-
-The Good: Friendly UX. Combined CMP plus policy generator. Good mid-market price point.
-
-Frustrations: Smaller IAB and enterprise footprint. Not the answer for a regulated multi-region enterprise.
-
-Wish List: Layer 3 enforcement. Bigger compliance pedigree.
-
-Value for Money: **6/10** for mid-market. **5/10** for true enterprise.
-
-Pricing: Tiered, mid-market plans in the $30 to $200/mo range.
-
----
-
-**6. Securiti.ai**
-
-The Good: Broader privacy platform with consent as one component. AI-driven data discovery. Strong for regulated enterprises that want a unified privacy stack.
-
-Frustrations: Heavyweight platform. Implementation complexity. Pricing in the enterprise tier.
-
-Wish List: A focused CMP product without the rest of the platform.
-
-Value for Money: **7/10** for enterprises that want the broader platform.
-
-Pricing: Enterprise, quote-based.
-
----
-
-**7. iubenda**
-
-The Good: Strong policy and CMP combo. Friendly DIY-to-enterprise ramp. Italian compliance pedigree.
-
-Frustrations: Banner-and-policy category. Layer 3 not in scope.
-
-Wish List: Server-side enforcement.
-
-Value for Money: **6.5/10** for SMB and mid-market.
-
-Pricing: Tiered, accessible.
-
----
-
-**8. Quantcast Choice**
-
-The Good: TCF 2.2 certified, IAB founding member, free for many publishers.
-
-Frustrations: Publisher-tilted. Less suited for non-ad-tech enterprises.
-
-Wish List: Broader enterprise positioning.
-
-Value for Money: **6.5/10** for publishers, lower outside that bracket.
-
-Pricing: Free for many cases.
-
----
-
-**9. DataCops**
-
-The Good: First-party CMP runs on a CNAME on your own subdomain (datacops.yourdomain.com), so consent state lives on first-party storage that survives ITP and ad blockers. Bundled with first-party analytics, server-side Meta and Google CAPI with consent-state enforcement at the egress layer (so denied consent stops the matching CAPI call from leaving the perimeter), and bot filtering so bot-generated consent records don't pollute the audit log. Per-event log captures consent state to tag decision to egress decision. TCF 2.2 certified. Multi-domain included on paid tiers, billed flat. Setup is one script tag and one CNAME, live in 5 to 30 minutes.
-
-Frustrations: Brand new compared to OneTrust or Cookiebot. SOC 2 Type II is in progress, not active. Google Consent Mode v2 certification is in progress on the certification track. SSO/SAML is planned, not active. Fewer pre-built one-click CMS integrations than enterprise CDPs. White-label is on the Talk-to-Sales tier, not on Growth or Business.
-
-Wish List: SOC 2 finished. The DSAR API plus downstream deletion to Meta and Google (currently on the planned roadmap, honestly disclosed). SSO/SAML active.
-
-Value for Money: **8.5/10** for mid-market and enterprise buyers who want layers 1+2+3 plus a per-event audit log on one bill. The honesty about what's in progress versus active is itself a procurement-grade differentiator (most enterprise CMP vendors imply certifications they haven't earned yet).
-
-Pricing: Enterprise tier is Talk to Sales, includes single-tenant isolated runtime, dedicated IP reputation database, custom DPA, EU/US data residency, HubSpot integration, migration engineer, 99.9% uptime SLA. Growth $7.99/mo and Business $49/mo cover mid-market with multi-domain bundled.
-
----
-
-## So what should you actually use?
-
-Want the procurement-grade enterprise nameplate, willing to spend ~$10K/year minimum and 6-12 weeks of implementation? OneTrust.
-
-Want a banner-only CMP plus policy generator at mid-market price, comfortable with banner being layer 1 only? Cookiebot, Osano, Termly, iubenda.
-
-Want a publisher-strong CMP with sGTM under the same roof? Didomi, with the Sourcepoint and Addingwell capabilities factored in.
-
-Want a unified privacy platform where CMP is one module among many? Securiti.ai.
-
-Want the layer 3 enforcement (CAPI/S2S egress with consent state) plus the per-event audit log a regulator can read, at SMB and mid-market pricing, on a CNAME you control? DataCops.
-
-Want a free-tier publisher CMP for ad-tech use cases? Quantcast Choice.
-
----
-
-## The mistake I see people make
-
-They treat enterprise CMP procurement as a 'pick the banner' exercise. They tab between OneTrust, Cookiebot, and Osano comparing UI customization options. Then a year later their auditor asks for per-event proof that no CAPI call left the perimeter for users who denied consent, and the platform can show banner state but not egress state. Fine.
-
-The second mistake: assuming Google Consent Mode v2 is a server-side problem. It isn't. Consent Mode v2 is a front-end signaling protocol. Whether your server-side stack honors the signal depends on whether your sGTM, your CDP, or your standalone CAPI integration was wired up to read the consent flag and gate the call. None of that is the CMP's job natively.
-
-The third mistake: ignoring bot-generated consent. Without filtering bots out of the consent layer, a meaningful share of 'consent given' records in your audit log are bots. When the regulator audits a window of consent records, half don't represent real humans. That's a layer-1 cleanliness problem that requires bot detection, not a banner problem.
-
----
-
-## Now your turn
-
-Which layer is your current CMP missing? Layer 1 banner state, layer 2 tag enforcement, or layer 3 CAPI egress enforcement? And does your audit log give you per-event proof, or session-level state? The honest answer is usually 'we have layer 1 and partial layer 2, no layer 3, and our audit log is session-level'. Which is fine until a regulator asks for the layer 3 data and the per-event proof. Drop where you are and what's at the renewal table this quarter.
-
----
-
-Research by [DataCops](https://www.joindatacops.com) · First-party tracking, consent infrastructure & fraud prevention.
+Research by [DataCops](https://www.joindatacops.com) — first-party tracking, consent infrastructure, fraud prevention, and server-side CAPI for Meta, Google, TikTok, and LinkedIn.
